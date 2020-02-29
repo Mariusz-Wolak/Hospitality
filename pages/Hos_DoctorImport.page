@@ -1,0 +1,58 @@
+<apex:page id="Hos_DoctorImport" controller="Hos_DoctorImportController">
+
+    <style type="text/css">
+        .actionButtons{
+            float: left;
+            margin-left: 100px;
+            margin-top: 20px;
+        }
+        .importButton{
+             float: right;
+             margin-right: 100px;
+             margin-top: 20px;
+        }
+    </style>
+
+    <apex:form >
+        <apex:pagemessages />
+        <apex:pageBlock title="{!$Label.Hos_Doctor_Import_Title}">
+            <apex:pageBlockSection columns="4">
+                <apex:inputFile value="{!csvFileBody}"  filename="{!csvAsString}"/>
+                <apex:commandButton value="{!$Label.Hos_Doctor_Import_Process_Button}" action="{!processCSVFile}"/>
+            </apex:pageBlockSection>
+        </apex:pageBlock>
+
+        <apex:actionRegion >
+            <apex:pageBlock id="results">
+                <apex:pageblocktable value="{!encapsulatedList}" var="doc">
+                    <apex:column HeaderValue="{!$Label.Actions}" width="40px;">
+                        <apex:actionSupport event="onchange" reRender="false">
+                            <apex:inputCheckbox value="{!doc.isSelected}"/>
+                        </apex:actionSupport>
+                    </apex:column>
+
+                    <apex:column value="{!doc.docEncapsulated.First_Name__c}"/>
+                    <apex:column value="{!doc.docEncapsulated.Name}"/>
+                    <apex:column value="{!doc.docEncapsulated.Email__c}"/>
+                    <apex:column value="{!doc.docEncapsulated.Country__c}"/>
+
+                    <apex:column HeaderValue="{!$Label.Status}">
+                        <apex:outputText value="{!doc.status}"/>
+                        <apex:outputText rendered="{!doc.isInserted == false}" value="{!doc.info}"/>
+                        <apex:outputlink rendered="{!doc.isInserted}" value="{!doc.info}">{!$Label.Link}</apex:outputlink>
+                    </apex:column>
+                </apex:pageblocktable>
+
+                <div class="actionButtons">
+                    <apex:commandButton value="{!$Label.Hos_Doctor_Import_Select_All}" action="{!selectAll}" reRender="results"/>
+                    <apex:commandButton value="{!$Label.Hos_Doctor_Import_Reverse}" action="{!reverse}" reRender="results"/>
+                    <apex:commandButton value="{!$Label.Hos_Doctor_Import_Deselect_All}" action="{!deselectAll}" reRender="results"/>
+                </div>
+
+                <div class="importButton">
+                    <apex:commandButton value="{!$Label.Hos_Doctor_Import_Import_Button}" action="{!importCSVFile}" reRender="results"/>
+                </div>
+            </apex:pageBlock>
+        </apex:actionRegion>
+    </apex:form>
+</apex:page>

@@ -1,0 +1,491 @@
+<apex:page standardController="Hos_Doctor__c" extensions="Hos_DoctorViewController,Hos_DoctorImageUpload,Hos_Utils">
+
+    <style type="text/css">
+        .photoContent{
+             float: left;
+             width: 200px;
+             height: 200px;
+        }
+        .infoContent{
+            margin-left: 200px;
+            padding-left: 10px;
+            padding-bottom:10px;
+        }
+        .DoctorFormUploadButtons{
+            text-align:center;
+            width:200px;
+            margin-bottom:5px;
+        }
+        #newPhotoDialog{
+            width: 400px;
+            height:700px;
+        }
+        .centerContent{
+            text-align: center;
+        }
+        .photoDeleteButtons{
+            padding-top:50px;
+        }
+        .datePicker{
+             z-index: 99999999999999999999;
+        }
+    </style>
+
+    <apex:includeScript value="{!$Resource.jquery}"/>
+    <apex:includeScript value="{!$Resource.jqueryui}"/>
+    <apex:includeScript value="{!$Resource.jcrop}"/>
+    <apex:stylesheet value="{!URLFOR($Resource.jquerypackage, '/jquery-ui-1.12.1.custom/jquery-ui.css')}"/>
+
+    <apex:outputPanel id="errorsPanel">
+        <apex:pageMessages ></apex:pageMessages>
+    </apex:outputPanel>
+
+    <apex:form >
+        <h1>{!$Label.Doctor}</h1>
+
+        <apex:pageBlock id="DoctorDetailsBlock" title="{! doc.Name }">
+            <div class="photoContent">
+                <apex:outputPanel id="DoctorPhotos">
+                    <apex:image id="image"
+                                url="{!$Resource.NoAvatar}"
+                                rendered="{!attachment.id == null}" width="200" height="200"/>
+                    <apex:actionFunction action="{!setLastAttachment}" name="fetchDoctorImage"/>
+                    <apex:actionFunction action="{!deleteImages}" name="removeDoctorImage"/>
+                    <apex:actionFunction name="rerenderDoctorImage" reRender="DoctorProfileImage,image"/>
+                    <apex:image url="/servlet/servlet.FileDownload?file={!attachment.id}" id="DoctorProfileImage"
+                                rendered="{!attachment.id != null}" width="200" height="200"/>
+                </apex:outputPanel>
+            </div>
+
+            <div class="infoContent">
+                <apex:pageBlockSection title="{!$Label.Details}">
+                    <apex:outputField value="{! doc.First_Name__c }"/>
+                    <apex:outputField value="{! doc.Email__c }"/>
+                    <apex:outputField value="{! doc.Name }"/>
+                    <apex:outputField value="{! doc.Phone__c }" id="phoneField">
+                        <apex:commandbutton style="margin-left: 20px"
+                                            onClick="ClipBoard('{!$Component.phoneField}', '{!$Component.holdtext}');"
+                                            rerender="phoneField" value="{!$Label.Copy}"/>
+                    </apex:outputField>
+                </apex:pageBlockSection>
+
+                <apex:pageBlockSection title="{!$Label.Address}">
+                    <apex:outputField value="{! doc.City__c }"/>
+                    <apex:outputField value="{! doc.Street__c }"/>
+                    <apex:outputField value="{! doc.Country__c }"/>
+                </apex:pageBlockSection>
+
+                <apex:pageBlockSection title="{!$Label.Other}">
+                    <apex:outputField value="{! doc.License_Number__c }" rendered="{!isLicenseNumberEnabled}"/>
+                    <apex:outputField value="{! doc.Date_of_birth__c}"/>
+                </apex:pageBlockSection>
+            </div>
+
+            <div class="DoctorFormUploadButtons">
+                <apex:commandButton value="{!$Label.Upload}"
+                                    onClick="$('#imgInp').val('');$('#newPhotoDialog').dialog('open'); return false; "
+                                    immediate="true"
+                                    status="status"
+                                    reRender="DoctorPhotos"/>
+
+                <apex:commandButton value="{!$Label.Delete}"
+                                    onClick="$('#photoDeleteConfirm').dialog('open'); return false; "
+                                    reRender="DoctorPhotos"
+                                    immediate="true"
+                                    status="status"
+                                    rendered="{!hasAttachment}"/>
+            </div>
+
+            <div id="newPhotoDialog">
+                <apex:pageBlock id="PictureUploadBlock">
+                    <apex:pageBlockSection >
+                        <input type='file' accept=".jpeg, .jpg, .png" id="imgInp"/>
+                    </apex:pageBlockSection>
+                    <div id="photoDialogContent">
+                        <div id="targetContainer">
+                            <img id="target" class="crop" src="#" style="border:1px solid;"/>
+                        </div>
+                        <div class="centerContent">
+                            <canvas id="preview" width="200" height="200"
+                                    style=" border:1px solid;"></canvas>
+                        </div>
+                    </div>
+                    <div id="newPhotoSave" class="centerContent">
+                        <apex:commandButton value="{!$Label.Save}"
+                                            onClick="saveImage();$('#newPhotoDialog').dialog('close'); return false;"
+                                            reRender="false"
+                        />
+                    </div>
+                </apex:pageBlock>
+            </div>
+
+            <div id="photoDeleteConfirm">
+                <apex:pageBlock >
+                    <div class="centerContent">
+                            {!$Label.Confirmation}
+                    </div>
+                    <apex:actionFunction name="deleteDoctorImages"
+                                         rerender="DoctorPhotos"/>
+                    <div class="centerContent photoDeleteButtons">
+                        <apex:commandButton value="{!$Label.Yes}"
+                                            onClick="deleteDoctorImages();$('#photoDeleteConfirm').dialog('close'); return false;"/>
+                        <apex:commandButton value="{!$Label.No}"
+                                            onClick="$('#photoDeleteConfirm').dialog('close'); return false;"/>
+                    </div>
+                </apex:pageBlock>
+            </div>
+
+            <apex:inputtextarea ID="holdtext" STYLE="display:none;"></apex:inputtextarea>
+
+            <div align="center" draggable="false">
+                <apex:commandButton action="{! goToDoctorEdit }" value="{!$Label.Edit}"/>
+
+                <apex:actionFunction action="{!clearHireDoctorDialog}" name="clearHireDoctorDialog" reRender="NewContractsPageBlock, PageMessages, HireSearchForm, results, contToPrepareSD, contToPrepareED" status="LoadingStatus"/>
+                <apex:commandButton value="{!$Label.Hire}"
+                                    onClick="clearHireDialog(); $('#hireDoctorDialog').dialog('open'); return false;"
+                                    immediate="true"
+                                    status="status"
+                                    reRender="HireSearchForm, results"/>
+
+                <apex:actionFunction action="{!clearEmailDialog}" name="clearEmailDialog" reRender="emailPageBlock" status="LoadingStatus"/>
+                <apex:commandButton value="{!$Label.Send_Email}"
+                                    onClick="clearMailDialog(); $('#emailDialog').dialog('open'); return false;"
+                                    immediate="true"
+                                    status="status"
+                                    reRender="emailPageBlock"/>
+
+                <apex:actionFunction action="{!deleteDoctor}" name="deleteDoctor" rerender="DoctorDetailsBlock" status="LoadingStatus"/>
+                <apex:commandButton value="{!$Label.Delete}" onclick="return confirmDeleteDoctor();"/>
+            </div>
+        </apex:pageBlock>
+
+        <apex:pageBlock id="contractsPageBlock" title="{!$Label.Contracts}">
+            <apex:pageBlockTable value="{!doctorContracts}" var="cont" rendered="{!NOT(ISNULL(doctorContracts))}">
+                <apex:column HeaderValue="{!$Label.Actions}" width="60">
+                    <apex:commandButton value="{!$Label.Dismiss}" action="{!dismissContract}" reRender="contractsPageBlock" disabled="{!IF(AND(NOT(ISNULL(cont.EndDate__c)), cont.EndDate__c<=TODAY()),true,false)}">
+                        <apex:param name="contractId" value="{!cont.Id}" assignTo="{!contractId}"/>
+                    </apex:commandButton>
+                </apex:column>
+
+                <apex:column headerValue="{!$Label.Contract_number}">
+                    <apex:outputLink value="/{!cont.Id}">{!cont.Name}</apex:outputLink>
+                </apex:column>
+
+                <apex:column headerValue="{!$Label.Hospital}" value="{!cont.Hospital__c}"/>
+
+                <apex:column value="{!cont.StartDate__c}"/>
+
+                <apex:column value="{!cont.EndDate__c}"/>
+
+                <apex:column value="{!cont.Status__c}"/>
+            </apex:pageBlockTable>
+        </apex:pageBlock>
+    </apex:form>
+
+    <div id="hireDoctorDialog">
+        <apex:form >
+            <apex:pageBlock >
+                <apex:pageMessages id="PageMessages" escape="false"></apex:pageMessages>
+
+                <apex:pageBlockSection title="{!$Label.Search_Form}" id="HireSearchForm">
+                    <apex:inputField value="{! searchItem.Name }" required="true"/>
+                    <apex:inputField value="{! searchItem.Email__c }"/>
+                    <apex:pageBlockSectionItem >
+                    </apex:pageBlockSectionItem>
+                    <apex:inputField value="{! searchItem.Country__c }"/>
+                </apex:pageBlockSection>
+
+                <div align="center" draggable="false">
+                    <apex:commandButton action="{! searchHospital }" value="{!$Label.Search}"
+                                        reRender="results, HireSearchForm"/>
+                    <apex:commandButton value="{!$Label.Clear}" action="{! clearSearchForm }" reRender="results, HireSearchForm"
+                                        immediate="true"/>
+                </div>
+            </apex:pageBlock>
+        </apex:form>
+
+        <apex:form >
+            <apex:pageBlock >
+                <apex:pageBlockSection id="results" title="{!$Label.Results}" rendered="true" columns="1">
+                    <apex:pageBlockTable value="{!wrappedHospitals}" var="h">
+                        <apex:column headerValue="{!$Label.Actions}" rendered="{!wrappedHospitals.size>0}">
+                            <apex:commandLink status="status" value="{!IF(OR(h.selected,hireDisable),'',$Label.Select)}" action="{!selectHospital}"
+                                              reRender="results, NewContractsPageBlock"
+                                              onClick="showNewContract()">
+                                <apex:param value="true" name="selectedHospitalId" assignTo="{!h.selected}"/>
+                                <apex:param value="false" name="allSuccessFlag" assignTo="{!allSuccess}"/>
+                            </apex:commandLink>
+                        </apex:column>
+
+                        <apex:column value="{!h.hosp.Name}"/>
+                        <apex:column value="{!h.hosp.Email__c}"/>
+                        <apex:column value="{!h.hosp.Country__c}"/>
+                    </apex:pageBlockTable>
+                </apex:pageBlockSection>
+            </apex:pageBlock>
+        </apex:form>
+
+        <apex:form >
+            <div id="NewContractsDiv" style="display: none;">
+                <apex:pageBlock id="NewContractsPageBlock">
+                    <apex:pageBlockSection title="{!$Label.Contracts}" columns="1">
+                        <apex:pageBlockTable value="{!newWrappedContracts}" var="newContr">
+                            <apex:column headerValue="{!$Label.Actions}" width="300">
+                                <apex:commandButton status="status" disabled="{!newContr.disabled}" rendered="{!!newContr.editFlag}" value="{!$Label.Edit}" action="{!newContr.toggleEditFlag}" immediate="true"
+                                                    reRender="results, pageMessages, NewContractsPageBlock">
+                                    <apex:param value="{!newContr.hosp.Id}" name="selectedHospitalId" assignTo="{!selectedHospitalId}"/>
+                                </apex:commandButton>
+                                <apex:commandButton status="status" value="{!$Label.Save}" rendered="{!newContr.editFlag}" action="{!newContr.toggleEditFlag}" reRender="NewContractsPageBlock, results"/>
+                                <apex:commandButton status="status" value="{!$Label.Cancel}" rendered="{!newContr.editFlag}" action="{!newContr.toggleEditFlag}" immediate="true" reRender="NewContractsPageBlock, results"/>
+                                <apex:commandButton status="status" value="{!$Label.Remove}" disabled="{!OR(newContr.editFlag,newContr.disabled)}" action="{!newContr.remove}" immediate="true"
+                                                    reRender="NewContractsPageBlock, results"/>
+                                <apex:commandButton status="status" disabled="{!OR(newContr.editFlag,newContr.disabled)}" value="{!$Label.Template}" action="{!setTemplate}" immediate="true"
+                                                    reRender="NewContractsPageBlock, results">
+                                    <apex:param value="{!newContr.hosp.Id}" name="selectedHospitalId" assignTo="{!selectedHospitalId}"/>
+                                </apex:commandButton>
+                            </apex:column>
+
+                            <apex:column headerValue="{!$ObjectType.Hos_Hospital__c.fields.Name.Label}">
+                                <apex:outputField value="{!newContr.hosp.Name}"/>
+                            </apex:column>
+
+                            <apex:column headerValue="{!$ObjectType.Hos_Contract__c.fields.StartDate__c.Label}">
+                                <apex:outputField value="{!newContr.contract.StartDate__c}" rendered="{!!newContr.editFlag}"/>
+                                <apex:inputField value="{!newContr.contract.StartDate__c}" rendered="{!newContr.editFlag}"/>
+                            </apex:column>
+
+                            <apex:column headerValue="{!$ObjectType.Hos_Contract__c.fields.EndDate__c.Label}">
+                                <apex:outputField value="{!newContr.contract.EndDate__c}" rendered="{!!newContr.editFlag}"/>
+                                <apex:inputField value="{!newContr.contract.EndDate__c}" rendered="{!newContr.editFlag}"/>
+                            </apex:column>
+
+                            <apex:column headerValue="{!$Label.Status}">
+                                <apex:outputText value="{!newContr.status}" id="insertStatus"/>
+                            </apex:column>
+                        </apex:pageBlockTable>
+                    </apex:pageBlockSection>
+
+                    <div align="center" draggable="false">
+                        <apex:commandButton status="status" action="{!processSelectedContracts}" onComplete="closeOnSuccess()" disabled="{!hireDisable}" reRender="NewContractsPageBlock, contractsPageBlock,checkAllSuccess" value="{!$Label.Hire}"/>
+                        <apex:commandButton status="status" onComplete="$('#hireDoctorDialog').dialog('close'); return false;" value="{!$Label.Cancel}" action="{!clearHireDoctorDialog}" immediate="true"
+                                            reRender="hireDoctorDialog, HireSearchForm, results, NewContractsPageBlock"/>
+                    </div>
+                </apex:pageBlock>
+                <apex:outputPanel id="checkAllSuccess">
+                    <script> success = {!allSuccess}; </script>
+                </apex:outputPanel>
+            </div>
+        </apex:form>
+    </div>
+
+    <div id="emailDialog">
+        <apex:form >
+            <apex:pageBlock id="emailPageBlock">
+                <apex:pageBlockSection showHeader="false" columns="1">
+                    <apex:outputField value="{!doc.Email__c}"/>
+                    <apex:inputText value="{!emailSubject}" label="Subject" id="EmailSubject" required="true"/>
+                    <apex:inputTextarea value="{!emailBody}" label="Message" rows="10" cols="22" id="EmailText" style="resize:none;" required="true"/>
+                </apex:pageBlockSection>
+
+                <div class="centerContent">
+                    <apex:commandButton value="{!$Label.Send}" action="{!sendEmail}" reRender="emailPageBlock"
+                                        onComplete="$('#emailDialog').dialog('close'); return false;">
+                    </apex:commandButton>
+
+                    <apex:commandButton value="{!$Label.Cancel}"
+                                        onComplete="$('#emailDialog').dialog('close');">
+                    </apex:commandButton>
+                </div>
+            </apex:pageBlock>
+        </apex:form>
+    </div>
+
+    <script>
+    window.$Label = window.$Label || {};
+    $Label.Confirmation = '{!JSENCODE($Label.Confirmation)}';
+    $Label.Hos_Invalid_Photo = '{!JSENCODE($Label.Hos_Invalid_Photo)}';
+    $Label.Hos_Doctor_Photo_Dialog_Title = '{!JSENCODE($Label.Hos_Doctor_Photo_Dialog_Title)}';
+    $Label.Hos_Doctor_Delete_Photo_Title = '{!JSENCODE($Label.Hos_Doctor_Delete_Photo_Title)}';
+
+    $Label.Hire = '{!JSENCODE($Label.Hire)}';
+    $Label.Full_Name = '{!JSENCODE(doc.Full_Name__c)}';
+    $Label.To = '{!JSENCODE($Label.To)}';
+    $Label.Hospital = '{!JSENCODE($Label.Hospital)}';
+    $Label.Concatenated_Hire_Dialog_Title = $Label.Hire + ' ' + $Label.Full_Name + ' ' + $Label.To + ' ' + $Label.Hospital;
+
+    $Label.Send_Email = '{!JSENCODE($Label.Send_Email)}';
+    $Label.Concatenated_Email_Dialog_Title = $Label.Send_Email + ' ' + $Label.To + ' ' + $Label.Full_Name;
+
+    const maxInputSize = 1000000;
+
+    $(function() {
+            $( "#newPhotoDialog" ).dialog({
+               autoOpen: false,
+                title: $Label.Hos_Doctor_Photo_Dialog_Title,
+                maxWidth:800,
+                maxHeight: 700,
+                width: 700,
+            });
+             $( "#photoDeleteConfirm" ).dialog({
+               autoOpen: false,
+               title: $Label.Hos_Doctor_Delete_Photo_Title,
+                maxWidth:800,
+                maxHeight: 700,
+                width: 500,
+            });
+            $("#newPhotoSave").hide();
+            $("#photoDialogContent").hide();
+            $( "#newPhotoDialog" ).on( "dialogopen", function( event, ui ) {
+                  clearSourceAndPreview();
+                  $("#photoDialogContent").hide();
+            });
+         });
+        var canvas,fileName;
+        $("#imgInp").change(function(){
+            readURL(this);
+        });
+        function clearSourceAndPreview(){
+             $("#targetContainer").html('');
+             let newImage = $(' <img id="target" class="crop" src="#"/>');
+             $("#targetContainer").prepend(newImage);
+             canvas = $("#preview")[0];
+             var context = canvas.getContext("2d");
+             context.clearRect(0, 0, canvas.width, canvas.height);
+             $("#newPhotoSave").hide();
+        }
+        function readURL(input) {
+            if (input.files[0].size > maxInputSize || !(validFileType(input.files[0]))){
+                window.alert($Label.Hos_Invalid_Photo);
+                return false;
+            }
+            if (input.files && input.files[0]) {
+                $("#photoDialogContent").show();
+                $("#target").css("display", "block");
+                $("#preview").css("display", "block");
+                fileName = input.files[0].name;
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    clearSourceAndPreview();
+                    $('#target').attr('src', e.target.result);
+                        $('#target').Jcrop({
+                            onChange : updatePreview,
+                            onSelect : updatePreview,
+                            boxWidth: 600,
+                            aspectRatio : 1
+                        });
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        function updatePreview(c) {
+            if(parseInt(c.w) > 0) {
+                var imageObj = $("#target")[0];
+                canvas = $("#preview")[0];
+                var context = canvas.getContext("2d");
+                context.drawImage(imageObj, c.x, c.y, c.w, c.h, 0, 0, canvas.width, canvas.height);
+            }
+             $("#newPhotoSave").show();
+        };
+        function onSaveResult(result, event) {
+            fetchDoctorImage();
+            rerenderDoctorImage();
+            canvas = $("#preview")[0];
+            return false;
+        }
+        function saveImage(){
+            var parent = '{!doc.id}';
+            var p1 = canvas.toDataURL("image/png").match(/data:(.+);base64,(.+)/);
+            {!$RemoteAction.Hos_DoctorImageUpload.saveImage}(fileName, p1[1], p1[2], parent, onSaveResult);
+            return false;
+        }
+        function validFileType(file) {
+            var fileTypes = [
+                'image/jpeg',
+                'image/jpg',
+                'image/png'
+            ];
+            for(var i = 0; i < fileTypes.length; i++) {
+                if(file.type === fileTypes[i]) {
+                    return true;
+                }
+            }
+        return false;
+        }
+
+        function deleteDoctorImages(){
+            removeDoctorImage();
+            rerenderDoctorImage();
+        }
+
+        function confirmDeleteDoctor() {
+            if(confirm($Label.Confirmation)) {
+                deleteDoctor();
+            }
+            return false;
+        }
+
+        function confirmDismissContract() {
+            if(confirm($Label.Confirmation)) {
+                dismissContract();
+            }
+            return false;
+        }
+
+        function ClipBoard(copytextid, holdtextid){
+            copyToClipboard(copytextid);
+        }
+
+        function copyToClipboard(elementId) {
+            var aux = document.createElement("input");
+            aux.setAttribute("value", document.getElementById(elementId).innerHTML);
+            document.body.appendChild(aux);
+            aux.select();
+            document.execCommand("copy");
+            document.body.removeChild(aux);
+        }
+
+        function clearHireDialog(){
+            clearHireDoctorDialog();
+            hideNewContract();
+        }
+        function clearMailDialog(){
+            clearEmailDialog();
+        }
+        $( function() {
+            $( "#hireDoctorDialog" ).dialog({
+                autoOpen: false,
+                width: "1000",
+                height: "500",
+                title: $Label.Concatenated_Hire_Dialog_Title,
+                show: "fold",
+            });
+        });
+
+        function showNewContract() {
+            document.getElementById("NewContractsDiv").style.display = "block";
+        }
+
+        function hideNewContract() {
+            document.getElementById("NewContractsDiv").style.display = "none";
+        }
+
+        var success ={!allSuccess};
+
+        function closeOnSuccess(){
+            if(success){
+                $('#hireDoctorDialog').dialog('close');
+                return false;
+            }
+        }
+
+        $( function() {
+        $( "#emailDialog" ).dialog({
+            autoOpen: false,
+            width: "310",
+            height: "310",
+            title:  $Label.Concatenated_Email_Dialog_Title,
+            show: "fold",
+        });
+    });
+    </script>
+</apex:page>

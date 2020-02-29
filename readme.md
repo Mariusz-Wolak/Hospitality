@@ -1,0 +1,1 @@
+Salesforce project in Visualforce about operations on doctors, hospitals and their junction objects: contracts. Used concepts: CRUD, SOAP, REST, files export and import, testing, batches.

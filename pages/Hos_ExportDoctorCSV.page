@@ -1,0 +1,2 @@
+<apex:page id="Hos_ExportDoctorCSV" standardController="Hos_Doctor__c" extensions="Hos_SearchDoctorController" cache="true" showHeader="false" contentType="text/csv#DoctorsCSV.csv">{!csvBody}
+</apex:page>

@@ -1,0 +1,82 @@
+<apex:page standardController="Hos_Doctor__c" extensions="Hos_SearchDoctorController">
+    <apex:form >
+        <apex:pageBlock title="{!$Label.Search_For_Doctor}">
+            <apex:pageMessages />
+
+            <apex:pageBlockSection title="{!$Label.Search_Form}" id="search-form">
+                <apex:inputField id="firstNameInput" value="{! searchItem.First_Name__c }" required="false"/>
+                <apex:inputField id="emailFieldInput" value="{! searchItem.Email__c }" required="false"/>
+                <apex:inputField id="nameFieldInput" value="{! searchItem.Name }" required="true"/>
+                <apex:inputField id="countryFieldInput" value="{! searchItem.Country__c }" required="false"/>
+            </apex:pageBlockSection>
+
+            <div align="center" draggable="false">
+                <apex:commandButton action="{! searchDoctor }" value="{!$Label.Search}"
+                                    reRender="results, search-form"/>
+                <apex:commandButton value="{!$Label.Clear}" action="{! clear }" reRender="results, search-form"
+                                    immediate="true"/>
+                <apex:commandButton value="{!$Label.CSV}" action="{! exportToCSV }" />
+                <apex:commandButton value="{!$Label.XLS}" action="{! exportToXLS }" />
+                <apex:commandButton value="{!$Label.JSON}" action="{! exportToJSON }" id="ExportExcel"/>
+            </div>
+        </apex:pageBlock>
+
+        <apex:pageBlock >
+            <apex:pageBlockSection id="results" title="{!$Label.Results}" rendered="true" columns="1">
+                <apex:pageBlockTable value="{!paginatedResults}" var="d">
+                    <apex:column >
+                        <apex:facet name="header">{!$Label.Actions}</apex:facet>
+                        <apex:outputLink target="_blank"
+                                         value="{!URLFOR($Action.Hos_Doctor__c.Edit, d.Id)}">{!$Label.Edit_Link}</apex:outputLink>
+                        <apex:outputText value=" | "></apex:outputText>
+                        <apex:outputLink target="_blank"
+                                         value="{!URLFOR($Action.Hos_Doctor__c.View, d.Id)}">{!$Label.View_Link}</apex:outputLink>
+                    </apex:column>
+
+                    <apex:column headerValue="{!$Label.Full_Name}">
+                        <apex:facet name="header">
+                            <apex:commandLink action="{! sortBy }" reRender="results">
+                                <apex:param name="columnParameter" value="Full_Name__c" assignTo="{!columnParameter}"/>
+                                <apex:outputPanel layout="none" rendered="{!sortByColumn=='Full_Name__c' && order=='DESC'}">&#9660;</apex:outputPanel>
+                                <apex:outputPanel layout="none" rendered="{!sortByColumn=='Full_Name__c' && order!='DESC'}">&#9650;</apex:outputPanel>
+                                <apex:outputText value="{!$Label.Full_Name}"/>
+                            </apex:commandLink>
+                        </apex:facet>
+                        <apex:outputLink value="/{!d}">{!d.Full_Name__c}</apex:outputLink>
+                    </apex:column>
+
+                    <apex:column value="{!d.Email__c}">
+                        <apex:facet name="header">
+                            <apex:commandLink action="{! sortBy }" reRender="results">
+                                <apex:param name="columnParameter" value="Email__c" assignTo="{!columnParameter}"/>
+                                <apex:outputPanel layout="none" rendered="{!sortByColumn=='Email__c' && order=='DESC'}">&#9660;</apex:outputPanel>
+                                <apex:outputPanel layout="none" rendered="{!sortByColumn=='Email__c' && order!='DESC'}">&#9650;</apex:outputPanel>
+                                <apex:outputText value="{!$Label.Email}"/>
+                            </apex:commandLink>
+                        </apex:facet>
+                    </apex:column>
+
+                    <apex:column value="{!d.Country__c}">
+                        <apex:facet name="header">
+                            <apex:commandLink action="{! sortBy }" reRender="results">
+                                <apex:param name="columnParameter" value="Country__c" assignTo="{!columnParameter}"/>
+                                <apex:outputPanel layout="none" rendered="{!sortByColumn=='Country__c' && order=='DESC'}">&#9660;</apex:outputPanel>
+                                <apex:outputPanel layout="none" rendered="{!sortByColumn=='Country__c' && order!='DESC'}">&#9650;</apex:outputPanel>
+                                <apex:outputText value="{!$Label.Country}"/>
+                            </apex:commandLink>
+                        </apex:facet>
+                    </apex:column>
+                </apex:pageBlockTable>
+
+                <apex:panelGrid columns="3">
+                    <apex:commandButton status="fetchStatus" reRender="results" value="{!$Label.Previous}"
+                                        action="{!ssc.previous}" disabled="{!!ssc.hasPrevious}" title="{!$Label.Previous_Page}"/>
+                    <apex:commandButton status="fetchStatus" reRender="results" value="{!$Label.Next}" action="{!ssc.next}"
+                                        disabled="{!!ssc.hasNext}" title="{!$Label.Next_Page}"/>
+                    <apex:outputText rendered="{!isPagesInfoShown}">{!(ssc.pageNumber * size)+1-size}
+                        -{!(ssc.pageNumber * size)} / {!numOfRecords}</apex:outputText>
+                </apex:panelGrid>
+            </apex:pageBlockSection>
+        </apex:pageBlock>
+    </apex:form>
+</apex:page>

@@ -1,0 +1,387 @@
+<apex:page id="Hos_MateuszDoctors" lightningStyleSheets="true" controller="Hos_MateuszDoctorsREST_Controller">
+    <apex:includeScript value="{!$Resource.jquery}"/>
+    <apex:includeScript value="{!$Resource.jqueryui}"/>
+
+    <style>
+    .slds-col{
+        padding-top: 5px;
+        padding-right: 10px;
+        padding-bottom: 10px;
+        padding-left: 10px;
+    }
+    .actionTable{
+        width:10px;
+    }
+    #btn{
+         padding-top: 5px;
+         padding-right: 10px;
+         padding-bottom: 10px;
+         padding-left: 10px;
+    }
+    .slds-scope .slds-modal__footer .slds-button.slds-button {
+         margin-right: 1.3rem;
+    }
+    .slds-scope .slds-input {
+        width:300px;
+    }
+    .slds-scope .slds-select_container .slds-select {
+       margin-right : 236.5px;
+    }
+    .slds-scope .slds-button--destructive {
+           margin-right: 25.7rem;
+    }
+    .slds-scope .slds-button_success, .slds-scope .slds-button--success {
+        position : absolute;
+        vertical-align: right;
+        bottom:-26px;
+        right :-4px;
+    }
+    .slds-scope .slds-button_success, .slds-scope .slds-button--success {
+        right: -10px;
+        padding-left: 0.2rem;
+        padding-right: 0.31rem;
+        background-color: rgb(177, 223, 196);
+    }
+    .delMargin td a{
+        margin-left: 1px;
+    }
+    .delMargin:first-child td a:last-child{
+        margin-left: -2px;
+    }
+    .slds-scope .slds-input{
+        width: 200px;
+    }
+    .Toast{
+        display:none;
+        position: fixed;
+        left: 50%;
+        transform: translate(-50%, 0);
+        top: 0;
+        z-index: 9999;
+    }
+
+</style>
+    <apex:form>
+        <apex:slds >
+            <apex:actionRegion >
+                <article class="slds-card">
+                    <div class="slds-card__header slds-grid">
+                        <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                            <div class="slds-media__figure"><span></span>
+                            </div>
+                            <div class="slds-media__body">
+                                <h2 class="slds-card__header-title">
+                                    <span>{!$Label.Mateusz_Doctors}</span>
+                                </h2>
+                            </div>
+                            <div class="slds-no-flex">
+                                <apex:commandButton styleClass="slds-button slds-button_brand"
+                                                    value="{!$Label.New}"
+                                                    action="{!prepareNewDoctorDialog}"
+                                                    onClick="$('#DoctorDialog').show();"
+                                                    reRender="header,buttons,DoctorDialog"
+                                />
+                            </div>
+                        </header>
+                    </div>
+                </article>
+
+                <apex:outputPanel id="searchValuePanel">
+                    <div class="slds-grid">
+                        <div class="slds-col slds-order_2 slds-large-order_1"/>
+
+                        <div class="slds-col slds-order_2 slds-large-order_1">
+                            <div class="slds-col slds-size_1-of-2">
+                                <label class="slds-form-element__label" for="text-input-id-1">
+                                    {!$Label.First_Name}
+                                </label>
+                                <div class="slds-form-element__control">
+                                    <apex:inputText styleClass="slds-input" value="{!searchItem.docFirstName}"/>
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-2">
+                                <label class="slds-form-element__label" for="text-input-id-1">
+                                    <abbr class="slds-required">* </abbr>{!$Label.Last_Name}
+                                </label>
+                                <div class="slds-form-element__control">
+                                    <apex:inputText styleClass="slds-input" value="{!searchItem.docLastName}"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="slds-col slds-order_2 slds-large-order_1">
+                            <div class="slds-col slds-size_1-of-2">
+                                <label class="slds-form-element__label" for="text-input-id-1">
+                                        {!$Label.Email}
+                                </label>
+                                <div class="slds-form-element__control">
+                                    <apex:inputText styleClass="slds-input" value="{!searchItem.docEmail}"/>
+                                </div>
+                            </div>
+
+                            <div class="slds-col slds-size_1-of-2">
+                                <label class="slds-form-element__label" for="text-input-id-1">
+                                        {!$Label.Country}
+                                </label>
+                                <div class="slds-form-element__control">
+                                    <apex:selectList styleClass="slds-input" value="{!searchItem.docCountry}" size="1">
+                                        <apex:selectOptions value="{!countries}"/>
+                                        <apex:actionSupport event="onchange" rerender="searchValuePanel"/>
+                                    </apex:selectList>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </apex:outputPanel>
+
+                <center>
+                    <div id="btn">
+                        <apex:commandButton styleClass="slds-button slds-button_brand" id="searchButton"
+                                            value="{!$Label.Search}" status="status"
+                                            action="{!searchDoctors}"
+                                            onComplete="if(!{!mateuszResponse.success}) {openErrorToast();}"
+                                            reRender="searchtable, errorToast, errorToastText"/>
+                        <apex:commandButton styleClass="slds-button slds-button_brand" value="{!$Label.Clear}"
+                                            action="{!clear}"
+                                            reRender="searchtable, searchValuePanel"/>
+                    </div>
+                </center>
+            </apex:actionRegion>
+
+            <apex:actionRegion >
+                <apex:outputPanel id="searchtable">
+                    <apex:outputPanel rendered="true" id="rend">
+                        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_col-bordered">
+                            <thead>
+                            <tr class="slds-line-height_reset">
+                                <th class="actionTable">
+                                    <div class="slds-truncate">{!$Label.Actions}</div>
+                                </th>
+                                <th class="" scope="col">
+                                    <div class="slds-truncate" title="{!$Label.Full_Name}">{!$Label.Full_Name}</div>
+                                </th>
+                                <th class="" scope="col">
+                                    <div class="slds-truncate" title="{!$Label.Email}">{!$Label.Email}</div>
+                                </th>
+                                <th class="" scope="col">
+                                    <div class="slds-truncate" title="{!$Label.Country}">{!$Label.Country}</div>
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <apex:repeat value="{!doctorResults}" var="doctorResult">
+                                <tr class="slds-hint-parent delMargin">
+                                    <td>
+                                        <apex:commandLink styleClass="slds-button slds-button_brand"
+                                                          value="{!$Label.Update}"
+                                                          reRender="header, DoctorDialog, buttons, searchtable, rend"
+                                                          action="{!prepareUpdateDoctorDialog}"
+                                                          onClick="$('#DoctorDialog').show();">
+                                            <apex:param value="{!doctorResult.docId}" assignTo="{!doctorId}" name="doctorId"/>
+                                            <apex:param value="{!doctorResult.docExternalId}" assignTo="{!doctorExternalId}" name="doctorId"/>
+                                        </apex:commandLink>
+                                        <apex:commandLink >
+                                            <apex:commandLink id="deleteDoctor"
+                                                              styleClass="slds-button slds-button_brand"
+                                                              value="{!$Label.Delete}"
+                                                              onClick="$('#doctorDeleteConfirmDialog').show();"
+                                                              reRender="searchtable">
+                                                <apex:param value="{!doctorResult.docId}" assignTo="{!doctorId}" name="doctorId"/>
+                                                <apex:param value="{!doctorResult.docExternalId}" assignTo="{!doctorExternalId}" name="doctorId"/>
+                                            </apex:commandLink>
+                                        </apex:commandLink>
+                                    </td>
+
+                                    <td>{!doctorResult.docFirstName} {!doctorResult.docLastName}</td>
+                                    <td>{!doctorResult.docEmail} </td>
+                                    <td>{!doctorResult.docCountry}</td>
+                                </tr>
+                            </apex:repeat>
+                            </tbody>
+                        </table>
+                    </apex:outputPanel>
+                </apex:outputPanel>
+            </apex:actionRegion>
+
+            <apex:actionRegion >
+                <div id="DoctorDialog" style="display : none;">
+                    <section role="dialog" tabindex="-1" aria-labelledby="modal-heading-01" aria-modal="true"
+                             aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open">
+                        <div class="slds-modal__container">
+                            <header class="slds-modal__header">
+                                <apex:outputPanel id="header">
+                                    <h2 id="modal-heading-01" class="slds-modal__title slds-hyphenate">
+                                            {!IF (doctorId == null, $Label.New, $Label.Update) }
+                                    </h2>
+                                </apex:outputPanel>
+                            </header>
+                            <div class="slds-modal__content">
+                                <apex:outputPanel id="DoctorDialog">
+                                    <div class="slds-grid slds-gutters">
+
+                                        <div class="slds-col slds-order_2 slds-large-order_1"/>
+
+                                        <div class="slds-col slds-order_2 slds-large-order_1">
+                                            <div class="slds-col slds-size_1-of-2">
+                                                <label class="slds-form-element__label" for="text-input-id-1">
+                                                    <abbr class="slds-required">* </abbr>{!$Label.First_Name}
+                                                </label>
+                                                <div class="slds-form-element__control">
+                                                    <apex:inputText styleClass="slds-input" value="{!dialogDoctor.docFirstName}"/>
+                                                </div>
+                                            </div>
+
+                                            <div class="slds-col slds-size_1-of-2">
+                                                <label class="slds-form-element__label" for="text-input-id-1">
+                                                    <abbr class="slds-required">* </abbr>{!$Label.Last_Name}
+                                                </label>
+                                                <div class="slds-form-element__control">
+                                                    <apex:inputText styleClass="slds-input" value="{!dialogDoctor.docLastName}"/>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="slds-col slds-order_2 slds-large-order_1">
+                                            <div class="slds-col slds-size_1-of-2">
+                                                <label class="slds-form-element__label" for="text-input-id-1">
+                                                    <abbr class="slds-required">* </abbr>{!$Label.Email}
+                                                </label>
+                                                <div class="slds-form-element__control">
+                                                    <apex:inputText styleClass="slds-input" value="{!dialogDoctor.docEmail}"/>
+                                                </div>
+                                            </div>
+
+                                            <div class="slds-col slds-size_1-of-4">
+                                                <label class="slds-form-element__label" for="text-input-id-1">
+                                                    {!$Label.Country}
+                                                </label>
+                                                <div class="slds-form-element__control">
+                                                    <apex:selectList styleClass="slds-input" value="{!dialogDoctor.docCountry}" size="1">
+                                                        <apex:selectOptions value="{!countries}"/>
+                                                        <apex:actionSupport event="onchange" rerender="DoctorDialog"/>
+                                                    </apex:selectList>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </apex:outputPanel>
+                            </div>
+
+                            <footer class="slds-modal__footer slds-modal__footer_directional">
+                                <div>
+                                    <center>
+                                        <apex:outputPanel id="buttons">
+                                            <apex:commandButton styleClass="slds-button slds-button_neutral"
+                                                                value="{!$Label.Cancel}"
+                                                                onClick="$('#DoctorDialog').hide();"
+                                                                reRender="DoctorDialog"/>
+
+                                            <apex:commandButton styleClass="slds-button slds-button_neutral"
+                                                                value="{!$Label.OK}"
+                                                                action="{!addDoctor}"
+                                                                onComplete="if({!mateuszResponse.success}) {openSuccessToast();} else{openErrorToast();}"
+                                                                reRender="DoctorDialog, errorToast, errorToastText, successToast, successToastText, searchtable, searchValuePanel"
+                                                                rendered="{!doctorId == null}"/>
+
+                                            <apex:commandButton styleClass="slds-button slds-button_neutral"
+                                                                value="{!$Label.Update}"
+                                                                action="{!updateDoctor}"
+                                                                onComplete="if({!mateuszResponse.success}) {openSuccessToast();} else{openErrorToast();}"
+                                                                reRender="DoctorDialog, errorToast, errorToastText, successToast, successToastText, searchtable, searchValuePanel"
+                                                                rendered="{!doctorId != null}"/>
+                                        </apex:outputPanel>
+                                    </center>
+                                </div>
+                            </footer>
+                        </div>
+                    </section>
+                    <div class="slds-backdrop slds-backdrop_open"></div>
+                </div>
+            </apex:actionRegion>
+
+            <apex:actionRegion >
+                <div id="doctorDeleteConfirmDialog" style="display : none;">
+                    <section role="dialog" tabindex="-1" aria-labelledby="modal-heading-01" aria-modal="true"
+                             aria-describedby="modal-content-id-1" class="slds-modal slds-fade-in-open">
+                        <div class="slds-modal__container">
+                            <header class="slds-modal__header">
+                                <h2 id="modal-heading-01"
+                                    class="slds-modal__title slds-hyphenate">{!$label.Confirmation}</h2>
+                            </header>
+                            <footer class="slds-modal__footer">
+                                <center>
+                                    <button class="slds-button slds-button_neutral"
+                                            onClick="$('#doctorDeleteConfirmDialog').hide();">
+                                            {!$label.No}
+                                    </button>
+                                    <apex:commandButton styleClass="slds-button slds-button_destructive"
+                                                        value="{!$Label.Yes}"
+                                                        action="{!deleteDoctor}"
+                                                        onComplete="if({!mateuszResponse.success}) {openSuccessToast();} else{openErrorToast();}"
+                                                        status="status"
+                                                        reRender="searchtable, searchValuePanel, successToast, successToastText"/>
+                                </center>
+                            </footer>
+                        </div>
+                    </section>
+                </div>
+            </apex:actionRegion>
+
+            <div id="successToast" class="Toast" style="height:4rem">
+                <div class="slds-notify_container slds-is-relative">
+                    <div class="slds-notify slds-notify_toast slds-theme_success" role="status">
+                        <span class="slds-icon_container slds-icon-utility-success slds-m-right_small slds-no-flex slds-align-top"
+                              title="Description of icon when needed">
+                </span>
+                        <div class="slds-notify__content">
+                            <h2 class="slds-text-heading_small"
+                                style="text-align: center;"><apex:outputText id="successToastText" value="{!mateuszResponse.message}"/></h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="errorToast" class="Toast" style="height:4rem">
+                <div class="slds-notify_container slds-is-relative">
+                    <div class="slds-notify slds-notify_toast slds-theme_error" role="status">
+                        <span class="slds-icon_container slds-icon-utility-error slds-m-right_small slds-no-flex slds-align-top"
+                              title="Description of icon when needed">
+                </span>
+                        <div class="slds-notify__content">
+                            <h2 class="slds-text-heading_small"
+                                style="text-align: center;"><apex:outputText id="errorToastText" value="{!mateuszResponse.message}"/></h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </apex:slds>
+    </apex:form>
+
+    <script>
+        function openSuccessToast(){
+                $('#doctorDeleteConfirmDialog').hide();
+                $('#DoctorDialog').hide();
+                var toast = document.getElementById("successToast");
+                toast.style.display = "block";
+                setTimeout(function(){
+                    toast.style.display = "none";
+                },4000);
+                toast.onclick = function(){
+                toast.style.display = "none";
+            }
+        }
+
+        function openErrorToast(){
+                var toast = document.getElementById("errorToast");
+                toast.style.display = "block";
+                setTimeout(function(){
+                    toast.style.display = "none";
+                },4000);
+                toast.onclick = function(){
+                toast.style.display = "none";
+            }
+        }
+    </script>
+
+</apex:page>

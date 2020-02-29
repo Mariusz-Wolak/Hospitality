@@ -1,0 +1,259 @@
+<apex:page standardController="Hos_Hospital__c" extensions="Hos_HospitalViewController,Hos_Utils">
+
+    <style type="text/css">
+        .datePicker{
+             z-index: 99999999999999999999;
+        }
+    </style>
+
+    <apex:includeScript value="{!$Resource.jquery}"/>
+    <apex:includeScript value="{!$Resource.jqueryui}"/>
+    <apex:includeScript value="{!$Resource.jcrop}"/>
+    <apex:stylesheet value="{!URLFOR($Resource.jquerypackage, '/jquery-ui-1.12.1.custom/jquery-ui.css')}"/>
+
+    <h1>{!$Label.Hospital}</h1>
+
+    <apex:pageBlock title="{! hospital.Name }" id="hospitalPageBlock">
+        <pageMessages></pageMessages>
+        <apex:pageBlockSection title="{!$Label.Details}">
+            <apex:outputField value="{! hospital.Name }"/>
+            <apex:outputField value="{! hospital.Phone__c }" id="phoneField">
+            </apex:outputField>
+            <apex:outputField value="{! hospital.Email__c }"/>
+        </apex:pageBlockSection>
+
+        <apex:pageBlockSection id="addressSection" columns="1" collapsible="true" title="{!$Label.Address}" rendered="{!isAddressSectionEnabled}">
+            <apex:pageBlockSection columns="2" collapsible="true">
+                <apex:pageBlockSectionItem >{!$Label.City}
+                    <apex:outputField value="{! hospital.City__c }"/>
+                </apex:pageBlockSectionItem>
+
+                <apex:pageBlockSectionItem >{!$Label.Street}
+                    <apex:outputField value="{! hospital.Street__c }"/>
+                </apex:pageBlockSectionItem>
+
+                <apex:pageBlockSectionItem >{!$Label.Country}
+                    <apex:outputField value="{! hospital.Country__c }"/>
+                </apex:pageBlockSectionItem>
+            </apex:pageBlockSection>
+
+            <apex:pageBlockSectionItem >
+                <apex:include pageName="Hos_HospitalMap"/>
+            </apex:pageBlockSectionItem>
+        </apex:pageBlockSection>
+
+        <apex:pageBlockSection title="{!$Label.Other}">
+            <apex:outputField value="{! hospital.Website__c }"/>
+        </apex:pageBlockSection>
+
+        <apex:form >
+            <apex:inputtextarea ID="holdtext" STYLE="display:none;"></apex:inputtextarea>
+            <div align="center" draggable="false">
+                <apex:commandButton action="{! goToHospitalEdit }" value="{!$Label.Edit}"/>
+
+                <apex:actionFunction action="{!clearHireDoctorDialog}" name="clearHireDoctorDialog" reRender="newContractPageBlock, PageMessages, HireSearchForm, results, contToPrepareSD, contToPrepareED" status="LoadingStatus"/>
+                <apex:commandButton value="{!$Label.Hos_Hospital_Hire_Button}"
+                                    onClick="clearHireDialog(); $('#hireDoctorDialog').dialog('open'); return false;"
+                                    immediate="true"
+                                    status="status"
+                                    reRender="HireSearchForm, results"/>
+
+                <apex:actionFunction action="{!deleteHospital}" name="deleteHospital" rerender="form" status="LoadingStatus"/>
+                <apex:commandButton value="{!$Label.Delete}" onclick="return confirmDeleteHospital();"/>
+            </div>
+        </apex:form>
+    </apex:pageBlock>
+
+    <apex:pageBlock id="contractsPageBlock" title="{!$Label.Contracts}">
+        <apex:form >
+            <apex:pageBlockTable value="{!hospitalContracts}" var="cont" rendered="{!NOT(ISNULL(hospitalContracts))}">
+                <apex:column HeaderValue="{!$Label.Actions}" width="60">
+                    <apex:commandButton value="{!$Label.Dismiss}" action="{!dismissContract}" reRender="contractsPageBlock" disabled="{!IF(AND(NOT(ISNULL(cont.EndDate__c)), cont.EndDate__c<=TODAY()),true,false)}">
+                        <apex:param name="contractId" value="{!cont.Id}" assignTo="{!contractId}"/>
+                    </apex:commandButton>
+                </apex:column>
+
+                <apex:column headerValue="{!$Label.Contract_number}">
+                    <apex:outputLink value="/{!cont.Id}">{!cont.Name}</apex:outputLink>
+                </apex:column>
+
+                <apex:column headerValue="{!$Label.Full_Name}">
+                    <apex:outputLink value="/{!cont.Doctor__c}">{!cont.Doctor__r.Full_Name__c}</apex:outputLink>
+                </apex:column>
+
+                <apex:column value="{!cont.StartDate__c}"/>
+
+                <apex:column value="{!cont.EndDate__c}"></apex:column>
+
+                <apex:column value="{!cont.Status__c}"/>
+            </apex:pageBlockTable>
+        </apex:form>
+    </apex:pageBlock>
+
+    <div id="hireDoctorDialog">
+        <apex:form >
+            <apex:pageBlock >
+                <apex:pageMessages id="PageMessages" escape="false"></apex:pageMessages>
+
+                <apex:pageBlockSection title="{!$Label.Search_Form}" id="HireSearchForm">
+                    <apex:inputField id="firstNameInput" value="{! searchItemToHire.First_Name__c }" required="false"/>
+                    <apex:inputField id="emailFieldInput" value="{! searchItemToHire.Email__c }" required="false"/>
+                    <apex:inputField id="nameFieldInput" value="{! searchItemToHire.Name }" required="true"/>
+                    <apex:inputField id="countryFieldInput" value="{! searchItemToHire.Country__c }" required="false"/>
+                </apex:pageBlockSection>
+
+                <div align="center" draggable="false">
+                    <apex:commandButton action="{! searchDoctor }" value="{!$Label.Search}"
+                                        reRender="results, HireSearchForm"/>
+                    <apex:commandButton value="{!$Label.Clear}" action="{! clearSearchResults }" reRender="results, HireSearchForm"
+                                        immediate="true"/>
+                </div>
+            </apex:pageBlock>
+        </apex:form>
+
+        <apex:form >
+            <apex:pageBlock >
+                <apex:pageBlockSection id="results" title="{!$Label.Results}" rendered="true" columns="1">
+                    <apex:pageBlockTable value="{!paginatedDoctorsToHire}" var="d">
+                        <apex:column >
+                            <apex:facet name="header">{!$Label.Actions}</apex:facet>
+                            <apex:commandButton value="{!$Label.Hos_Select_Doctor_To_Hire}" action="{!selectDoctorToHire}" disabled="{!If(d.Id == doctorToHireId, true, false)}" reRender="results, DoctorFullName"
+                                                onClick="showNewContract()">
+                                <apex:param name="doctorToHireId" value="{!d.Id}" assignTo="{!doctorToHireId}"/>
+                            </apex:commandButton>
+                        </apex:column>
+
+                        <apex:column headerValue="{!$Label.Full_Name}">
+                            <apex:facet name="header">
+                                <apex:commandLink action="{! sortBy }" reRender="results">
+                                    <apex:param name="columnParameter" value="Full_Name__c" assignTo="{!columnParameter}"/>
+                                    <apex:outputPanel layout="none" rendered="{!sortByColumn=='Full_Name__c' && order=='DESC'}">&#9660;</apex:outputPanel>
+                                    <apex:outputPanel layout="none" rendered="{!sortByColumn=='Full_Name__c' && order!='DESC'}">&#9650;</apex:outputPanel>
+                                    <apex:outputText value="{!$Label.Full_Name}"/>
+                                </apex:commandLink>
+                            </apex:facet>
+                            <apex:outputLink value="/{!d}">{!d.Full_Name__c}</apex:outputLink>
+                        </apex:column>
+
+                        <apex:column value="{!d.Email__c}">
+                            <apex:facet name="header">
+                                <apex:commandLink action="{! sortBy }" reRender="results">
+                                    <apex:param name="columnParameter" value="Email__c" assignTo="{!columnParameter}"/>
+                                    <apex:outputPanel layout="none" rendered="{!sortByColumn=='Email__c' && order=='DESC'}">&#9660;</apex:outputPanel>
+                                    <apex:outputPanel layout="none" rendered="{!sortByColumn=='Email__c' && order!='DESC'}">&#9650;</apex:outputPanel>
+                                    <apex:outputText value="{!$Label.Email}"/>
+                                </apex:commandLink>
+                            </apex:facet>
+                        </apex:column>
+
+                        <apex:column value="{!d.Country__c}">
+                            <apex:facet name="header">
+                                <apex:commandLink action="{! sortBy }" reRender="results">
+                                    <apex:param name="columnParameter" value="Country__c" assignTo="{!columnParameter}"/>
+                                    <apex:outputPanel layout="none" rendered="{!sortByColumn=='Country__c' && order=='DESC'}">&#9660;</apex:outputPanel>
+                                    <apex:outputPanel layout="none" rendered="{!sortByColumn=='Country__c' && order!='DESC'}">&#9650;</apex:outputPanel>
+                                    <apex:outputText value="{!$Label.Country}"/>
+                                </apex:commandLink>
+                            </apex:facet>
+                        </apex:column>
+                    </apex:pageBlockTable>
+
+                    <apex:panelGrid columns="3">
+                        <apex:commandButton status="fetchStatus" reRender="results" value="{!$Label.Previous}"
+                                            action="{!ssc.previous}" disabled="{!!ssc.hasPrevious}" title="{!$Label.Previous_Page}"/>
+                        <apex:commandButton status="fetchStatus" reRender="results" value="{!$Label.Next}" action="{!ssc.next}"
+                                            disabled="{!!ssc.hasNext}" title="{!$Label.Next_Page}"/>
+                        <apex:outputText rendered="{!isPagesInfoShown}">{!(ssc.pageNumber * size)+1-size}
+                            -{!(ssc.pageNumber * size)} / {!numOfRecords}</apex:outputText>
+                    </apex:panelGrid>
+                </apex:pageBlockSection>
+            </apex:pageBlock>
+        </apex:form>
+
+        <apex:form >
+            <div id="NewContractDiv" style="display: none;">
+
+                <apex:pageBlock id="NewContractPageBlock">
+                    <apex:pageBlockSection title="New Contract">
+                        <apex:outputField value="{!hospital.Name}"/>
+                        <apex:pageBlockSectionItem >
+                            <apex:outputLabel value="{!$Label.Doctor}" for="DoctorFullName"></apex:outputLabel>
+                            <apex:outputField value="{!doctorToHire.Full_Name__c}" id="DoctorFullName"></apex:OutputField>
+                        </apex:pageBlockSectionItem>
+                        <apex:inputField value="{!contractToPrepare.StartDate__c}" id="contToPrepareSD" required="true"/>
+                        <apex:inputField value="{!contractToPrepare.EndDate__c}" id="contToPrepareED"/>
+                    </apex:pageBlockSection>
+
+                    <div align="center" draggable="false">
+                        <apex:commandButton action="{!hireDoctor}" value="{!$Label.Hos_Hospital_Hire_Button}" reRender="contractsPageBlock, PageMessages"
+                                            onComplete="if({!isHiringSuccess})$('#hireDoctorDialog').dialog('close'); return false;">
+                            <apex:param name="hiringHospitalId" value="{!hospital.Id}" assignTo="{!hiringHospitalId}"/>
+                        </apex:commandButton>
+                        <apex:commandButton value="{!$Label.Cancel}"
+                                            onClick="$('#hireDoctorDialog').dialog('close'); return false;"/>
+                    </div>
+                </apex:pageBlock>
+            </div>
+        </apex:form>
+    </div>
+
+    <script>
+    window.$Label = window.$Label || {};
+    $Label.Confirmation = '{!JSENCODE($Label.Confirmation)}';
+    $Label.Hos_Hire_Doctor_Dialog_Title = '{!JSENCODE($Label.Hos_Hire_Doctor_Dialog_Title)}';
+    $Label.Hospital_Name = '{!JSENCODE(hospital.Name)}';
+    $Label.Concatenated_Dialog_Title = $Label.Hos_Hire_Doctor_Dialog_Title + ' ' + $Label.Hospital_Name;
+
+    function confirmDeleteHospital() {
+        if(confirm($Label.Confirmation)) {
+            deleteHospital();
+        }
+        return false;
+    }
+
+    function clearHireDialog(){
+        clearHireDoctorDialog();
+        hideNewContract();
+    }
+
+    function confirmDismissContract() {
+        if(confirm($Label.Confirmation)) {
+            dismissContract();
+        }
+        return false;
+    }
+
+    function ClipBoard(copytextid, holdtextid){
+        copyToClipboard(copytextid);
+    }
+
+    function copyToClipboard(elementId) {
+        var aux = document.createElement("input");
+        aux.setAttribute("value", document.getElementById(elementId).innerHTML);
+        document.body.appendChild(aux);
+        aux.select();
+        document.execCommand("copy");
+        document.body.removeChild(aux);
+    }
+
+    $( function() {
+        $( "#hireDoctorDialog" ).dialog({
+            autoOpen: false,
+            width: "600",
+            height: "500",
+            title: $Label.Concatenated_Dialog_Title,
+            show: "fold",
+        });
+    });
+
+    function showNewContract() {
+        document.getElementById("NewContractDiv").style.display = "block";
+    }
+
+    function hideNewContract() {
+        document.getElementById("NewContractDiv").style.display = "none";
+    }
+
+    twistSection(document.getElementById('{!$Component.hospitalPageBlock.addressSection}').getElementsByTagName('img')[0]);
+    </script>
+</apex:page>
